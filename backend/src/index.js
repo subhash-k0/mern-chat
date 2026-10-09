@@ -6,6 +6,7 @@ import cors from "cors";
 import fs from "fs";
 import path from "path";
 import User from "./models/user.model.js";
+import job from "./lib/cron.js";
 
 
 const app = express();
@@ -34,4 +35,8 @@ app.listen(PORT, () => {
 
     connectDb()
     console.log(`Server started on port ${process.env.PORT}` || 3000);
+
+    if (process.env.NODE_ENV === "production") {
+        job.start();
+    }
 })
