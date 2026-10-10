@@ -1,34 +1,55 @@
+
 import express from 'express';
 import http from 'http';
-import {Server} from "socket.io";
+import { Server } from 'socket.io';
 
-const qpp = express();
+const app = express();
 const server = http.createServer(app);
 
-const allowedOrigins = process.env.FRONTEND_URL || "http://localhost:5173";
+const allowedOrigin =
+  process.env.FRONTEND_URL || 'http://localhost:5173';
 
-const io = new Server(server, { cors: { origin: [allowedOrigin] } });
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigin,
+    methods: ['GET', 'POST'],
+  },
+});
 
-function getReceiverSocketId(userId) {
-    return userSocketMap[userId];
-}
-
-// online users map = { userId: socketId }
+// Online users map: { userId: socketId }
 const userSocketMap = {};
 
-io.on("connection", (socket) => {
-    const userId = socket.handshake.query.userId;
+// Get the socket ID of a receiver
+function getReceiverSocketId(userId) {
+  return userSocketMap[userId];
+}
 
-    if (userId) userSocketMap[userId] = socket.id;
+// Socket.IO connection handler
+io.on('connection', (socket) => {
+  const userId = socket.handshake.query.userId;
 
-    // io.emit() sends event to everyone - broadcast
-    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+  console.log('A user connected:', socket.id);
 
-    // socket.on is used to listen for events
-    socket.on("disconnect", () => {
-        if (userId) delete userSocketMap[userId];
-        io.emit("getOnlineUsers", Object.keys(userSocketMap));
-    });
+  // Store the user's socket ID
+  if (userId) {
+    userSocketMap[userId] = socket.id;
+  }
+
+  // Send online users to all connected clients
+  io.emit('getOnlineUsers', Object.keys(userSocketMap));
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log('A user disconnected:', socket.id);
+
+    // Remove only if this socket is still the user's active socket
+    if (userId && userSocketMap[userId] === socket.id) {
+      delete userSocketMap[userId];
+    }
+
+    // Update online users
+    io.emit('getOnlineUsers', Object.keys(userSocketMap));
+  });
 });
 
 export { app, server, io, getReceiverSocketId };
